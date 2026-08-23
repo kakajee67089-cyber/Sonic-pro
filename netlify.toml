@@ -1,0 +1,14 @@
+[build]
+  publish = "."
+
+[[redirects]]
+  from = "/socket.io/*"
+  to = "https://YOUR-SOCKET-SERVER-URL/socket.io/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/health"
+  to = "https://YOUR-SOCKET-SERVER-URL/health"
+  status = 200
+  force = true
