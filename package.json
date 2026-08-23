@@ -1,9 +1,0 @@
-{
-  "name": "sonicsync-pro-v9",
-  "version": "9.0.0",
-  "private": true,
-  "description": "SonicSync Pro V9 web app repository",
-  "scripts": {
-    "start": "node server/server.js"
-  }
-}
