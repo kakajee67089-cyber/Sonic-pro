@@ -1,9 +1,13 @@
 {
-  "name": "sonicsync-pro-v9",
+  "name": "sonicsync-pro-v9-server",
   "version": "9.0.0",
   "private": true,
-  "description": "SonicSync Pro V9 web app repository",
+  "description": "SonicSync Pro V9 Socket.IO server",
   "scripts": {
-    "start": "node server/server.js"
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.8.1"
   }
 }
