@@ -3,6 +3,7 @@
 const QUIZ_DURATION_MS = 60_000;
 const QUIZ_LAST5_MS = 5_000;
 const quizRooms = new Map();
+const { verifySocket } = require('./firebase-auth');
 
 function cleanUser(user = {}) {
   return {
@@ -14,18 +15,30 @@ function cleanUser(user = {}) {
 
 function install(io) {
   io.__viewmindRealtimeInstalled = true;
+  io.use(async (socket, next) => {
+    const token = socket.handshake?.auth?.token;
+    if (!token) return next();
+    try {
+      const user = await verifySocket(socket);
+      if (user?.uid) socket.data.viewmindUser = user;
+      return next();
+    } catch (err) {
+      return next(new Error('Invalid Firebase authentication token'));
+    }
+  });
+
   io.on('connection', socket => {
     socket.__viewmindRooms = new Set();
     socket.on('presence:register', user => {
       const u = cleanUser(user);
-      if (u.uid) socket.data.viewmindUser = u;
+      if (u.uid) socket.data.viewmindUser = { ...socket.data.viewmindUser, ...u };
     });
     const trackRoom = p => {
       const roomId = String(p?.roomId || '').toUpperCase();
       const uid = String(p?.user?.uid || p?.uid || socket.data?.viewmindUser?.uid || '');
       if (roomId && uid) {
         socket.__viewmindRooms.add(roomId);
-        socket.data.viewmindUser = cleanUser(p?.user || socket.data.viewmindUser || { uid });
+        socket.data.viewmindUser = { ...socket.data.viewmindUser, ...cleanUser(p?.user || { uid }) };
       }
     };
     socket.on('room:create', trackRoom);
