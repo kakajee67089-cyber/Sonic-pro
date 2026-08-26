@@ -1,12 +1,13 @@
 'use strict';
 
-// ViewMind runtime hardening + additive realtime layer.
-// The existing server remains intact; the realtime quiz engine is attached
-// as a separate Socket.IO listener so existing music/game events are preserved.
+// ViewMind runtime hardening + additive realtime/auth layer.
+// Existing server and Socket.IO events remain intact.
 
 const http = require('http');
+const express = require('express');
 const socketio = require('socket.io');
 const realtime = require('./viewmind-realtime');
+const { verifyIdToken } = require('./firebase-auth');
 const originalCreateServer = http.createServer;
 
 http.createServer = function createHardenedServer(requestListener, ...args) {
@@ -28,8 +29,28 @@ http.createServer = function createHardenedServer(requestListener, ...args) {
   return originalCreateServer.call(http, wrappedListener, ...args);
 };
 
-// server.js imports { Server } from socket.io. Wrap that constructor so the
-// additive ViewMind realtime layer is installed on the same Socket.IO instance.
+// Additive Firebase verification endpoint. It never receives or stores a password.
+const originalExpress = express;
+const wrappedExpress = function viewMindExpress(...args) {
+  const app = originalExpress(...args);
+  app.post('/auth/verify', originalExpress.json({ limit: '32kb' }), async (req, res) => {
+    try {
+      const decoded = await verifyIdToken(req.body?.idToken);
+      res.json({ ok: true, user: {
+        uid: String(decoded.uid),
+        email: decoded.email ? String(decoded.email).toLowerCase() : null,
+        name: decoded.name ? String(decoded.name).slice(0, 80) : 'Player',
+        photo: decoded.picture ? String(decoded.picture).slice(0, 1000) : null
+      }});
+    } catch (err) {
+      res.status(401).json({ ok: false, error: 'Invalid or expired authentication token' });
+    }
+  });
+  return app;
+};
+Object.assign(wrappedExpress, originalExpress);
+require.cache[require.resolve('express')].exports = wrappedExpress;
+
 const OriginalServer = socketio.Server;
 socketio.Server = class ViewMindServer extends OriginalServer {
   constructor(...args) {
