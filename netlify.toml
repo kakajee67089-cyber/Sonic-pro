@@ -24,3 +24,7 @@
 [[edge_functions]]
   function = "viewmind-auth-v2"
   path = "/*"
+
+[[edge_functions]]
+  function = "viewmind-room-v22"
+  path = "/*"
