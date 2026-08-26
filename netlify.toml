@@ -16,3 +16,7 @@
 [[edge_functions]]
   function = "viewmind-welcome"
   path = "/*"
+
+[[edge_functions]]
+  function = "viewmind-music-room-v2"
+  path = "/*"
