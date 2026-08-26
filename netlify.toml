@@ -3,12 +3,16 @@
 
 [[redirects]]
   from = "/socket.io/*"
-  to = "https://YOUR-SOCKET-SERVER-URL/socket.io/:splat"
+  to = "https://sonic-pro-qfa9.onrender.com/socket.io/:splat"
   status = 200
   force = true
 
 [[redirects]]
   from = "/health"
-  to = "https://YOUR-SOCKET-SERVER-URL/health"
+  to = "https://sonic-pro-qfa9.onrender.com/health"
   status = 200
   force = true
+
+[[edge_functions]]
+  function = "viewmind-welcome"
+  path = "/*"
