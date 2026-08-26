@@ -1,6 +1,6 @@
 {
   "name": "sonicsync-pro-v9-server",
-  "version": "9.0.1",
+  "version": "9.1.0",
   "private": true,
   "description": "ViewMind Socket.IO server",
   "scripts": {
@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "express": "^4.18.2",
+    "firebase-admin": "^13.5.0",
     "socket.io": "^4.8.1"
   }
 }
