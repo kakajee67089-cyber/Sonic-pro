@@ -5,9 +5,7 @@ export default async (request, context) => {
   if (!contentType.includes("text/html")) return response;
 
   const html = await response.text();
-  if (html.includes("viewmind-powered-popup")) {
-    return new Response(html, response);
-  }
+  if (html.includes("viewmind-powered-popup")) return new Response(html, response);
 
   const injection = `
 <style id="viewmind-powered-popup-style">
@@ -18,6 +16,7 @@ export default async (request, context) => {
 #viewmind-powered-popup h3{margin:0 0 7px;font-size:22px;font-weight:900;letter-spacing:.2px}
 #viewmind-powered-popup p{margin:0;color:#b8bfd5;font-size:13px;line-height:1.55}
 #viewmind-powered-popup .vpp-name{margin-top:9px;color:#8be9ff;font-weight:900;font-size:15px}
+#viewmind-powered-popup .vpp-version{margin-top:7px;color:#c7d2fe;font-size:12px;font-weight:800;letter-spacing:.5px}
 #viewmind-powered-popup .vpp-close{margin-top:20px;width:100%;border:0;border-radius:15px;padding:13px 18px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-weight:900;cursor:pointer;box-shadow:0 5px 0 rgba(0,0,0,.22)}
 #viewmind-powered-popup .vpp-close:active{transform:translateY(2px);box-shadow:0 3px 0 rgba(0,0,0,.22)}
 @keyframes vppIn{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
@@ -28,6 +27,7 @@ export default async (request, context) => {
     <h3 id="viewmind-powered-title">ViewMind</h3>
     <p>Website Powered by</p>
     <div class="vpp-name">Devanand Kumar</div>
+    <div class="vpp-version">Version 2.1</div>
     <button class="vpp-close" type="button" aria-label="Close">Close</button>
   </div>
 </div>
@@ -35,28 +35,23 @@ export default async (request, context) => {
 (function(){
   function init(){
     var overlay=document.getElementById('viewmind-powered-popup');
-    if(!overlay) return;
+    if(!overlay)return;
     var close=overlay.querySelector('.vpp-close');
-    var key='viewmind_powered_popup_seen_v1';
+    var key='viewmind_powered_popup_seen_v2_1';
     function hide(){overlay.classList.remove('show');overlay.setAttribute('aria-hidden','true');}
     function show(){overlay.classList.add('show');overlay.setAttribute('aria-hidden','false');}
     close.addEventListener('click',hide);
     overlay.addEventListener('click',function(e){if(e.target===overlay)hide();});
     document.addEventListener('keydown',function(e){if(e.key==='Escape')hide();});
-    try{
-      if(!sessionStorage.getItem(key)){sessionStorage.setItem(key,'1');show();}
-    }catch(_){show();}
+    try{if(!sessionStorage.getItem(key)){sessionStorage.setItem(key,'1');show();}}catch(_){show();}
   }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init,{once:true}); else init();
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
 </script>`;
 
-  const marker = "</body>";
-  const output = html.includes(marker)
-    ? html.replace(marker, injection + marker)
-    : html + injection;
-
-  const headers = new Headers(response.headers);
+  const marker="</body>";
+  const output=html.includes(marker)?html.replace(marker,injection+marker):html+injection;
+  const headers=new Headers(response.headers);
   headers.delete("content-length");
-  return new Response(output, { status: response.status, statusText: response.statusText, headers });
+  return new Response(output,{status:response.status,statusText:response.statusText,headers});
 };
