@@ -9,4 +9,4 @@ window.SONICSYNC_FIREBASE_CONFIG = {
   appId: "1:933796139968:web:90343e6f4752057ea06e25",
   measurementId: "G-Z71MZ7T0MZ"
 };
-window.SONICSYNC_SOCKET_URL = window.SONICSYNC_SOCKET_URL || 'https://YOUR-SOCKET-SERVER-URL';
+window.SONICSYNC_SOCKET_URL = window.SONICSYNC_SOCKET_URL || 'https://sonic-pro-1.onrender.com';
