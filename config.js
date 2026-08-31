@@ -1,6 +1,6 @@
-// SonicSync Pro — public frontend configuration
-window.SONICSYNC_FIREBASE_CONFIG = {
-  apiKey: "AIzaSyAiSZULFtq9qcilW0l9oVEYnsriKYZqRX4",
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyAiSZULFtq9qcil0W9oVEYnsriKYZqRXk4",
   authDomain: "soni-c9410.firebaseapp.com",
   databaseURL: "https://soni-c9410-default-rtdb.firebaseio.com",
   projectId: "soni-c9410",
