@@ -1,0 +1,56 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "users": {
+      ".read": "auth != null && auth.token.email != null && (auth.token.email.toLowerCase() === 'devanandyt99@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt88@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt00@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt22@gmail.com')",
+      "$uid": {
+        ".read": "auth != null && (data.child('authUid').val() === auth.uid || (auth.token.email != null && (auth.token.email.toLowerCase() === 'devanandyt99@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt88@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt00@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt22@gmail.com')))" ,
+        ".write": "auth != null && (data.child('authUid').val() === auth.uid || (!data.exists() && newData.child('authUid').val() === auth.uid) || (auth.token.email != null && (auth.token.email.toLowerCase() === 'devanandyt99@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt88@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt00@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt22@gmail.com')))" ,
+        "notifications": {".write": "auth != null && (root.child('users').child($uid).child('authUid').val() === auth.uid || (auth.token.email != null && (auth.token.email.toLowerCase() === 'devanandyt99@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt88@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt00@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt22@gmail.com')))", ".read": "auth != null && (root.child('users').child($uid).child('authUid').val() === auth.uid || (auth.token.email != null && (auth.token.email.toLowerCase() === 'devanandyt99@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt88@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt00@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt22@gmail.com')))"},
+        "requests": {".write": "auth != null && (root.child('users').child($uid).child('authUid').val() === auth.uid || (auth.token.email != null && (auth.token.email.toLowerCase() === 'devanandyt99@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt88@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt00@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt22@gmail.com')))", ".read": "auth != null && (root.child('users').child($uid).child('authUid').val() === auth.uid || (auth.token.email != null && (auth.token.email.toLowerCase() === 'devanandyt99@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt88@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt00@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt22@gmail.com')))"},
+        "friends": {".write": "auth != null && (root.child('users').child($uid).child('authUid').val() === auth.uid || (auth.token.email != null && (auth.token.email.toLowerCase() === 'devanandyt99@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt88@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt00@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt22@gmail.com')))", ".read": "auth != null && (root.child('users').child($uid).child('authUid').val() === auth.uid || (auth.token.email != null && (auth.token.email.toLowerCase() === 'devanandyt99@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt88@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt00@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt22@gmail.com')))"},
+        "followers": {".write": "auth != null", ".read": "auth != null"},
+        "following": {".write": "auth != null", ".read": "auth != null"}
+      }
+    },
+
+    "publicProfiles": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null"
+      }
+    },
+
+    "uidIndex": {
+      "$publicUid": {
+        ".read": "auth != null",
+        ".write": "auth != null && (!data.exists() || data.val() === auth.uid || (auth.token.email != null && (auth.token.email.toLowerCase() === 'devanandyt99@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt88@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt00@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt22@gmail.com')))"
+      }
+    },
+
+    "authProfiles": {
+      "$authUid": {
+        ".read": "auth != null && (auth.uid === $authUid || (auth.token.email != null && (auth.token.email.toLowerCase() === 'devanandyt99@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt88@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt00@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt22@gmail.com')))" ,
+        ".write": "auth != null && (auth.uid === $authUid || (auth.token.email != null && (auth.token.email.toLowerCase() === 'devanandyt99@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt88@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt00@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt22@gmail.com')))"
+      }
+    },
+
+    "meta": {
+      ".read": "auth != null",
+      ".write": "auth != null && auth.token.email != null && (auth.token.email.toLowerCase() === 'devanandyt99@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt88@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt00@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt22@gmail.com')"
+    },
+
+    "rooms": {
+      "$roomId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+
+    "matchmaking": {".read": "auth != null", ".write": "auth != null"},
+    "appSettings": {".read": "auth != null", ".write": "auth != null && auth.token.email != null && (auth.token.email.toLowerCase() === 'devanandyt99@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt88@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt00@gmail.com' || auth.token.email.toLowerCase() === 'devanandyt22@gmail.com')"},
+    "privateChats": {".read": "auth != null", ".write": "auth != null"}
+  }
+}
