@@ -17,6 +17,10 @@
     if(typeof oldMS==='function'&&!oldMS.__ssNoLimit){window.msStartPuzzleClock=function(){if(window.msSolo===false){clearInterval(window.msPuzzleTimer);var t=el('ms-puzzle-time');if(t)t.textContent='∞';return;}return oldMS.apply(this,arguments);};window.msStartPuzzleClock.__ssNoLimit=true;}
     var oldMatch=window.msStartMatchClock;
     if(typeof oldMatch==='function'&&!oldMatch.__ssNoLimit){window.msStartMatchClock=function(){if(window.msSolo===false){clearInterval(window.msMatchTimer);var t=el('ms-match-time');if(t)t.textContent='∞';return;}return oldMatch.apply(this,arguments);};window.msStartMatchClock.__ssNoLimit=true;}
+    var oldQ=window.startQTimer;
+    if(typeof oldQ==='function'&&!oldQ.__ssNoLimit){window.startQTimer=function(){if(typeof quizRoomId!=='undefined'&&quizRoomId){clearInterval(window.qTimerInt);var t=el('qtimer');if(t)t.textContent='∞';return;}return oldQ.apply(this,arguments);};window.startQTimer.__ssNoLimit=true;}
+    var oldQT=window.startQuizTotalTimer;
+    if(typeof oldQT==='function'&&!oldQT.__ssNoLimit){window.startQuizTotalTimer=function(){if(typeof quizRoomId!=='undefined'&&quizRoomId){clearInterval(window.SS_QUIZ_TOTAL_TIMER);var t=el('q-total-timer');if(t){t.textContent='∞';t.style.color='var(--neon)';}return;}return oldQT.apply(this,arguments);};window.startQuizTotalTimer.__ssNoLimit=true;}
   }
 
   function installRoomSearch(){
