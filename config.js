@@ -1,5 +1,5 @@
 // Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// Google, Guest/Anonymous and Email/Password authentication remain enabled.
 const firebaseConfig = {
   apiKey: "AIzaSyC4yFUw23s1Wb9ignSPzRdGeSaThNLTiXY",
   authDomain: "sonic-singh.firebaseapp.com",
@@ -11,6 +11,6 @@ const firebaseConfig = {
   measurementId: "G-8NMB6HYKWY"
 };
 
-// The main application reads the Firebase configuration from this namespace.
 window.SONICSYNC_FIREBASE_CONFIG = firebaseConfig;
-window.SONICSYNC_SOCKET_URL = window.SONICSYNC_SOCKET_URL || 'https://sonic-pro-1.onrender.com';
+// Keep the frontend Socket.IO endpoint aligned with the Netlify proxy.
+window.SONICSYNC_SOCKET_URL = window.SONICSYNC_SOCKET_URL || 'https://sonic-pro-qfa9.onrender.com';
