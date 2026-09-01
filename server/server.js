@@ -1,48 +1,16 @@
 'use strict';
 
-// SonicSync Pro - low latency Socket.IO real-time server
-// Firebase can remain enabled in the client for legacy persistence.
-// This server is intentionally stateless except for live room state.
+// SonicSync Pro - low latency Socket.IO real-time server.
+// Authentication is handled by the web client locally; the realtime server
+// accepts guest/local sessions and therefore does not depend on Firebase.
 
-const path = require('path');
 const http = require('http');
 const express = require('express');
 const { Server } = require('socket.io');
-const { jwtVerify, decodeProtectedHeader } = require('jose');
-const { createPublicKey } = require('crypto');
 
 const PORT = process.env.PORT || 3000;
 const app = express();
 const server = http.createServer(app);
-const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'soni-c9410';
-const FIREBASE_CERT_URL = 'https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com';
-let firebaseCertCache = { expiresAt: 0, keys: new Map() };
-
-async function getFirebaseKey(kid) {
-  if (!kid) throw new Error('Missing token key id');
-  if (Date.now() >= firebaseCertCache.expiresAt || !firebaseCertCache.keys.has(kid)) {
-    const res = await fetch(FIREBASE_CERT_URL);
-    if (!res.ok) throw new Error('Unable to fetch Firebase signing certificates');
-    const certs = await res.json();
-    const keys = new Map();
-    for (const [id, cert] of Object.entries(certs)) keys.set(id, createPublicKey(cert));
-    const cc = res.headers.get('cache-control') || '';
-    const m = cc.match(/max-age=(\d+)/i);
-    const ttl = m ? Number(m[1]) * 1000 : 3600000;
-    firebaseCertCache = { expiresAt: Date.now() + Math.max(60000, ttl - 60000), keys };
-  }
-  const key = firebaseCertCache.keys.get(kid);
-  if (!key) throw new Error('Unknown Firebase signing key');
-  return key;
-}
-
-async function verifyFirebaseToken(token) {
-  const { kid } = decodeProtectedHeader(token);
-  const key = await getFirebaseKey(kid);
-  const { payload } = await jwtVerify(token, key, { issuer: `https://securetoken.google.com/${PROJECT_ID}`, audience: PROJECT_ID });
-  if (payload.sub !== payload.user_id) throw new Error('Invalid Firebase token subject');
-  return payload;
-}
 
 const allowedOrigins = String(process.env.CORS_ORIGIN || '*').split(',').map(s => s.trim()).filter(Boolean);
 const io = new Server(server, {
@@ -60,8 +28,8 @@ const io = new Server(server, {
 });
 
 app.use(express.static(__dirname));
-app.get('/', (_req, res) => res.json({ ok:true, service:'SonicSync Socket.IO', project:PROJECT_ID, message:'Realtime server is running' }));
-app.get('/health', (_req, res) => res.json({ ok: true, service: 'SonicSync Socket.IO', now: Date.now() }));
+app.get('/', (_req, res) => res.json({ ok:true, service:'SonicSync Socket.IO', auth:'local', message:'Realtime server is running' }));
+app.get('/health', (_req, res) => res.json({ ok: true, service: 'SonicSync Socket.IO', auth: 'local', now: Date.now() }));
 
 const rooms = new Map();
 const CODE_RE = /^[A-Z0-9]{6}$/;
@@ -90,9 +58,7 @@ function ensureRoom(roomId, data = {}) {
 function publicUsers(room) {
   return Object.fromEntries([...room.users.entries()].map(([uid, u]) => [uid, u]));
 }
-function publicPlayback(room) {
-  return room.playback ? { ...room.playback } : null;
-}
+function publicPlayback(room) { return room.playback ? { ...room.playback } : null; }
 function removeEmpty(roomId) {
   const room = rooms.get(roomId);
   if (room && room.sockets.size === 0) rooms.delete(roomId);
@@ -101,35 +67,27 @@ function isMember(socket, roomId) {
   const room = rooms.get(roomId);
   return !!room && room.sockets.has(socket.id);
 }
-function broadcastUsers(room) {
-  io.to(room.roomId).emit('room:users', publicUsers(room));
-}
+function broadcastUsers(room) { io.to(room.roomId).emit('room:users', publicUsers(room)); }
 
-io.use(async (socket, next) => {
-  try {
-    const token = socket.handshake.auth?.token;
-    if (!token) return next(new Error('Firebase authentication required'));
-    socket.user = await verifyFirebaseToken(String(token));
-    return next();
-  } catch (e) {
-    return next(new Error('Invalid Firebase authentication'));
-  }
+// No Firebase token is required. This keeps guest and email/local sessions
+// usable from normal HTTPS pages and avoids the previous Firebase dependency.
+io.use((socket, next) => {
+  const authUid = String(socket.handshake.auth?.uid || socket.handshake.auth?.token || `local-${socket.id}`).slice(0, 120);
+  socket.user = { user_id: authUid, sub: authUid };
+  next();
 });
 
 io.on('connection', socket => {
   socket.on('time:ping', data => {
-    socket.emit('time:pong', {
-      clientSentAt: Number(data?.clientSentAt) || 0,
-      serverNow: Date.now()
-    });
+    socket.emit('time:pong', { clientSentAt: Number(data?.clientSentAt) || 0, serverNow: Date.now() });
   });
 
   socket.on('room:create', payload => {
     const roomId = String(payload?.roomId || '').toUpperCase();
     if (!CODE_RE.test(roomId)) return socket.emit('room:error', { message: 'Invalid room code' });
     const user = cleanUser(payload?.user);
-    user.authUid = String(socket.user?.user_id || socket.user?.sub || '');
-    if (!user.uid || !user.authUid) return socket.emit('room:error', { message: 'Missing authenticated user' });
+    user.authUid = String(socket.user?.user_id || `local-${socket.id}`);
+    if (!user.uid) return socket.emit('room:error', { message: 'Missing user' });
 
     const existing = rooms.get(roomId);
     if (existing && existing.sockets.size > 0 && existing.hostUid !== user.uid) {
@@ -150,8 +108,8 @@ io.on('connection', socket => {
   socket.on('room:join', payload => {
     const roomId = String(payload?.roomId || '').toUpperCase();
     const user = cleanUser(payload?.user);
-    user.authUid = String(socket.user?.user_id || socket.user?.sub || '');
-    if (!CODE_RE.test(roomId) || !user.uid || !user.authUid) return socket.emit('room:error', { message: 'Invalid room or authentication' });
+    user.authUid = String(socket.user?.user_id || `local-${socket.id}`);
+    if (!CODE_RE.test(roomId) || !user.uid) return socket.emit('room:error', { message: 'Invalid room or user' });
 
     const room = rooms.get(roomId) || ensureRoom(roomId, { type: payload?.type || 'music' });
     if (!room.hostUid) room.hostUid = payload?.isHost ? user.uid : null;
@@ -181,8 +139,7 @@ io.on('connection', socket => {
     const room = rooms.get(roomId);
     if (!room || !isMember(socket, roomId)) return;
     const uid = room.sockets.get(socket.id);
-    if (uid !== room.hostUid) return; // host-authoritative playback
-
+    if (uid !== room.hostUid) return;
     const event = {
       roomId,
       hostUid: room.hostUid,
@@ -241,7 +198,4 @@ io.on('connection', socket => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`SonicSync Socket.IO server running on http://localhost:${PORT}`);
-});
-                                                                                                      
+server.listen(PORT, () => console.log(`SonicSync Socket.IO local-auth server running on port ${PORT}`));
