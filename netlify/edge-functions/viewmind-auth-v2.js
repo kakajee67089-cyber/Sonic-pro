@@ -1,38 +1,198 @@
-// ViewMind Auth v2: Firebase Authentication bridge while preserving the existing
-// Firebase Realtime Database and Socket.IO layers.
+// SonicSync local authentication bridge.
+// Firebase/Google/phone authentication is intentionally removed from the web UI.
+// Guest and email/password accounts are stored locally in the browser.
 export default async (request, context) => {
   const response = await context.next();
   const type = response.headers.get('content-type') || '';
   if (!type.includes('text/html')) return response;
+
   let html = await response.text();
+
+  // Remove the Firebase client/config scripts from the delivered page so the
+  // old Firebase bootstrap cannot produce auth initialization/API-key errors.
+  html = html
+    .replace(/<script[^>]+src=["']config\.js["'][^>]*><\/script>/gi, '')
+    .replace(/<script[^>]+src=["'][^"']*firebase[^"']*["'][^>]*><\/script>/gi, '');
+
+  // Remove authentication methods that require an external identity provider.
+  html = html
+    .replace(/<button[^>]*onclick=["']firebaseGoogleLogin\(\)["'][\s\S]*?<\/button>/gi, '')
+    .replace(/<button[^>]*id=["']mode-toggle["'][\s\S]*?<\/button>/gi, '')
+    .replace(/<div class=["']auth-secure-note["'][^>]*>[\s\S]*?<\/div>/gi,
+      '<div class="auth-secure-note">🔐 Local account session • Guest mode • Email/password</div>');
+
   const patch = `
-<script id="viewmind-auth-v2-sdk">
+<script id="sonicsync-local-auth-v1">
 (function(){
   'use strict';
-  var config={apiKey:'AIzaSyAiSZULFtq9qci10W9oVEYnsxuv3JkiVDM',authDomain:'soni-c9410.firebaseapp.com',databaseURL:'https://soni-c9410-default-rtdb.firebaseio.com',projectId:'soni-c9410',storageBucket:'soni-c9410.firebasestorage.app',messagingSenderId:'933796139968',appId:'1:933796139968:web:90343e6f4752057ea06e25'};
-  function load(src){return new Promise(function(resolve,reject){var s=document.createElement('script');s.src=src;s.onload=resolve;s.onerror=reject;document.head.appendChild(s);});}
-  async function boot(){try{
-    if(!window.firebase)await load('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js');
-    if(!window.firebase.database)await load('https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js');
-    if(!window.firebase.auth)await load('https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js');
-    if(!firebase.apps.length)firebase.initializeApp(config);var auth=firebase.auth(),db=firebase.database();window.ViewMindAuthV2={auth:auth,db:db,version:'2.2'};
-    function logEvent(type,data){try{var u=auth.currentUser;if(!u)return;db.ref('analytics/events').push(Object.assign({type:type,uid:u.uid,email:u.email||null,time:Date.now(),sessionId:sessionStorage.getItem('vm_session')||null},data||{}));}catch(e){}}
-    try{if(!sessionStorage.getItem('vm_session'))sessionStorage.setItem('vm_session',Math.random().toString(36).slice(2)+Date.now().toString(36));}catch(e){}
-    async function refreshSocketToken(fu){try{var token=await fu.getIdToken(true);window.__VIEWMIND_ID_TOKEN=token;if(window.SS_SOCKET){window.SS_SOCKET.auth={token:token};if(window.SS_SOCKET_CONNECTED){window.SS_SOCKET.disconnect();window.SS_SOCKET.connect();}}else if(typeof window.ssInitSocket==='function'&&typeof window.io==='function'){var realIo=window.io;window.io=function(url,opts){opts=Object.assign({},opts,{auth:{token:token}});return realIo(url,opts);};try{window.ssInitSocket();}finally{window.io=realIo;}}}catch(e){console.warn('Socket auth token refresh failed',e);}}
-    function localUsers(){try{return JSON.parse(localStorage.getItem('ss6_users')||'{}')||{};}catch(e){return {};}}
-    function findLegacy(email){var all=localUsers(),key=String(email||'').toLowerCase();return Object.values(all).find(function(u){return String(u&&u.email||'').toLowerCase()===key)||null;}}
-    function setErr(msg){var e=document.getElementById('auth-err');if(e){e.textContent=msg;e.style.display=msg?'block':'none';}}
-    async function persistUser(fu,legacy){var ref=db.ref('users/'+fu.uid),snap=await ref.once('value'),old=snap.val()||{};var profile=Object.assign({},legacy||{},old,{uid:fu.uid,email:fu.email||old.email||legacy?.email||'',lastActive:Date.now(),authProvider:'firebase'});if(!profile.name)profile.name=(fu.displayName||String(fu.email||'User').split('@')[0]);await ref.set(profile);try{localStorage.setItem('ss6_last_auth_uid',fu.uid);}catch(e){}window.U=profile;return profile;}
-    async function login(email,password){email=String(email||'').trim().toLowerCase();if(!email||!password){setErr('ईमेल और पासवर्ड भरें');return false;}setErr('');var legacy=findLegacy(email),cred;try{if(legacy)cred=await auth.signInWithEmailAndPassword(email,password);else{try{cred=await auth.signInWithEmailAndPassword(email,password);}catch(e){if(e&&e.code==='auth/user-not-found')cred=await auth.createUserWithEmailAndPassword(email,password);else throw e;}}var profile=await persistUser(cred.user,legacy);await refreshSocketToken(cred.user);logEvent('login',{uid:profile.uid});if(typeof window.enterApp==='function')window.enterApp();if(typeof window.toast==='function')window.toast('✅ सुरक्षित Firebase login • UID: '+profile.uid);return true;}catch(e){var m=e&&e.code==='auth/wrong-password'?'❌ गलत पासवर्ड':e&&e.code==='auth/invalid-credential'?'❌ ईमेल या पासवर्ड गलत है':e&&e.code==='auth/email-already-in-use'?'❌ यह ईमेल पहले से registered है':e&&e.code==='auth/weak-password'?'❌ पासवर्ड बहुत कमजोर है':'❌ Login असफल हुआ';setErr(m);return false;}}
-    window.viewMindFirebaseLogin=login;
-    document.addEventListener('click',function(ev){var b=ev.target&&ev.target.closest&&ev.target.closest('.auth-main');if(!b)return;ev.preventDefault();ev.stopPropagation();if(ev.stopImmediatePropagation)ev.stopImmediatePropagation();login(document.getElementById('ae')?.value,document.getElementById('ap')?.value);},true);
-    var oldLogout=window.doLogout;window.doLogout=function(){logEvent('logout');try{auth.signOut();}catch(e){}try{localStorage.removeItem('ss6_last_auth_uid');}catch(e){}return oldLogout?oldLogout.apply(this,arguments):undefined;};
-    auth.onAuthStateChanged(async function(fu){if(!fu)return;try{var legacy=findLegacy(fu.email||''),profile=await persistUser(fu,legacy);await refreshSocketToken(fu);if(document.getElementById('auth-screen')?.style.display!=='none'&&typeof window.enterApp==='function')window.enterApp();logEvent('session_restore',{uid:profile.uid});}catch(e){console.warn('ViewMind Firebase session restore failed',e);}});
-    var hookTimer=setInterval(function(){var s=window.SS_SOCKET;if(!s||s.__vmAnalytics)return;s.__vmAnalytics=true;s.on('connect',function(){logEvent('socket_connect');});s.on('disconnect',function(){logEvent('socket_disconnect');});s.on('quiz:result',function(r){logEvent('quiz_result',{roomId:r?.roomId,reason:r?.reason,ranking:r?.ranking||[]});});s.on('room:state',function(r){logEvent('room_state',{roomId:r?.roomId,roomType:r?.type,hostUid:r?.hostUid,playerCount:Object.keys(r?.users||{}).length});});},2000);setTimeout(function(){clearInterval(hookTimer);},60000);
-  }catch(e){console.error('ViewMind Auth v2 unavailable',e);}}
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
+  const ACCOUNT_KEY='sonicsync_local_accounts_v1';
+  const SESSION_KEY='sonicsync_local_session_v1';
+  const AUTH_VERSION='local-v1';
+
+  const $=id=>document.getElementById(id);
+  const read=(k,f)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):f;}catch(e){return f;}};
+  const write=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));return true;}catch(e){return false;}};
+  const normalizeEmail=e=>String(e||'').trim().toLowerCase();
+  const safeName=n=>String(n||'User').trim().slice(0,60)||'User';
+  const uid=prefix=>prefix+'_'+crypto.randomUUID().replace(/-/g,'').slice(0,20);
+
+  async function hash(text){
+    const bytes=new TextEncoder().encode(text);
+    const digest=await crypto.subtle.digest('SHA-256',bytes);
+    return Array.from(new Uint8Array(digest)).map(x=>x.toString(16).padStart(2,'0')).join('');
+  }
+  function error(msg){
+    const e=$('auth-err');
+    if(e){e.textContent=msg||'';e.style.display=msg?'block':'none';e.style.background='rgba(239,68,68,.16)';e.style.color='#fecaca';}
+  }
+  function busy(on,msg){
+    const e=$('auth-loading');
+    if(e){e.style.display=on?'flex':'none';if(msg)e.querySelector('.auth-loading-text')?.replaceChildren(document.createTextNode(msg));}
+    document.querySelectorAll('.auth-btn-pro').forEach(b=>b.disabled=!!on);
+  }
+  function accounts(){return read(ACCOUNT_KEY,{});}
+  function saveAccounts(a){write(ACCOUNT_KEY,a);}
+  function localProfile(data){
+    const base=(typeof window.seedLocalUserShape==='function')?window.seedLocalUserShape(data):Object.assign({coins:0,inventory:[],vipExpiry:{},rooms:0,songs:0,games:0,matches:0,wins:0,losses:0,loginStreak:0,likeCount:0,followersCount:0,followingCount:0,notifications:{},requests:{},friends:{},followers:{},following:{},likesBy:{},joinedAt:Date.now(),lastActive:Date.now()},data);
+    return base;
+  }
+  function setSession(profile){
+    window.U=profile;
+    write(SESSION_KEY,{uid:profile.uid,email:profile.email,name:profile.name,guest:profile.email==='guest@sonicsync.app',version:AUTH_VERSION});
+    try{if(window.users){window.users[profile.email]=profile;window.LS?.s?.('users',window.users);}}catch(e){}
+  }
+  function persistProfile(){
+    try{if(window.U?.email==='guest@sonicsync.app')return;const a=accounts();if(window.U?.email)a[normalizeEmail(window.U.email)]={...(a[normalizeEmail(window.U.email)]||{}),profile:window.U};saveAccounts(a);}catch(e){}
+  }
+  // Replace the Firebase-dependent saveUser with local persistence.
+  window.saveUser=function(){if(window.U){window.U.lastActive=Date.now();persistProfile();try{if(window.users){window.users[window.U.email]=window.U;window.LS?.s?.('users',window.users);}}catch(e){}}};
+  window.hydrateUserFromFirebase=async function(){};
+  window.initFirebaseAuth=function(){};
+  window.FIREBASE_AUTH=null;
+  window.DB_REF=null;
+
+  function finish(profile){
+    setSession(profile);
+    error('');
+    try{window.updateProfUI?.();window.lockAdminUI?.();}catch(e){}
+    if(typeof window.enterApp==='function')window.enterApp();
+    try{window.toast?.('Welcome '+profile.name+'! 🎵');}catch(e){}
+  }
+
+  async function emailLogin(){
+    error('');
+    const email=normalizeEmail($('ae')?.value), password=$('ap')?.value||'';
+    if(!email||!password){error('Email aur password dono bharo.');return;}
+    if(password.length<6){error('Password kam se kam 6 characters ka rakho.');return;}
+    busy(true,'Signing in…');
+    try{
+      const a=accounts(), rec=a[email];
+      if(!rec){
+        error('Account nahi mila. “Create a new account” se account banao.');
+        return;
+      }
+      const ok=(await hash(rec.salt+':'+password))===rec.passwordHash;
+      if(!ok){error('Email ya password galat hai.');return;}
+      const profile=localProfile({...rec.profile,email,name:rec.name,uid:rec.uid,authUid:'local:'+rec.uid,isAdmin:false,lastActive:Date.now()});
+      finish(profile);
+    }catch(e){console.error(e);error('Login failed. Dobara try karo.');}
+    finally{busy(false);}
+  }
+
+  async function register(){
+    error('');
+    const name=safeName($('reg-name')?.value), email=normalizeEmail($('reg-email')?.value), password=$('reg-password')?.value||'';
+    if(!name||!email||!password){error('Naam, email aur password bharo.');return;}
+    if(password.length<6){error('Password kam se kam 6 characters ka rakho.');return;}
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){error('Valid email address bharo.');return;}
+    busy(true,'Creating account…');
+    try{
+      const a=accounts();
+      if(a[email]){error('Ye email already registered hai. Sign in karo.');return;}
+      const salt=uid('salt');
+      const id=uid('u');
+      const profile=localProfile({email,name,uid:id,authUid:'local:'+id,isAdmin:false,photo:null,lastActive:Date.now()});
+      a[email]={email,name,uid:id,salt,passwordHash:await hash(salt+':'+password),profile};
+      saveAccounts(a);finish(profile);
+    }catch(e){console.error(e);error('Account create nahi ho paya.');}
+    finally{busy(false);}
+  }
+
+  function guestLogin(){
+    error('');busy(true,'Starting guest session…');
+    try{
+      const id=uid('g');
+      const profile=localProfile({email:'guest@sonicsync.app',name:'Guest_'+id.slice(-4),uid:id,authUid:'local:'+id,isAdmin:false,photo:null,lastActive:Date.now()});
+      finish(profile);
+    }finally{busy(false);}
+  }
+
+  window.firebaseEmailLogin=emailLogin;
+  window.firebaseRegister=register;
+  window.firebaseGuestLogin=guestLogin;
+  window.firebaseGoogleLogin=function(){error('Google login hata diya gaya hai. Email ya Guest login use karo.');};
+  window.toggleFirebasePhoneMode=function(){error('Phone login hata diya gaya hai. Email ya Guest login use karo.');};
+  window.sendPasswordReset=function(){error('Password recovery local account ke liye available nahi hai. Naya password set karne ke liye account dobara create karna hoga.');};
+
+  window.doLogout=function(){
+    try{window.cleanupRoomListeners?.();}catch(e){}
+    try{window.lockAdminUI?.();}catch(e){}
+    window.U=null;
+    try{localStorage.removeItem(SESSION_KEY);}catch(e){}
+    const app=$('app'),auth=$('auth-screen');if(app)app.style.display='none';if(auth)auth.style.display='flex';
+    if($('ae'))$('ae').value='';if($('ap'))$('ap').value='';error('');
+    try{window.showAuthSection?.('auth-main');}catch(e){}
+  };
+
+  // Prevent the original inline Firebase handlers from running.
+  document.addEventListener('click',function(ev){
+    const el=ev.target?.closest?.('button');if(!el)return;
+    const text=(el.textContent||'').trim();
+    if(/Mobile Number Login|Login with Phone|Continue with Google/i.test(text)){
+      ev.preventDefault();ev.stopImmediatePropagation();el.style.display='none';return;
+    }
+  },true);
+
+  function restore(){
+    const s=read(SESSION_KEY,null);if(!s)return;
+    if(s.guest){
+      finish(localProfile({email:'guest@sonicsync.app',name:s.name||'Guest',uid:s.uid,authUid:'local:'+s.uid,isAdmin:false,lastActive:Date.now()}));
+      return;
+    }
+    const a=accounts(),rec=a[normalizeEmail(s.email)];
+    if(rec){finish(localProfile({...rec.profile,email:rec.email,name:rec.name,uid:rec.uid,authUid:'local:'+rec.uid,isAdmin:false,lastActive:Date.now()}));}
+    else localStorage.removeItem(SESSION_KEY);
+  }
+
+  function cleanupUi(){
+    document.querySelectorAll('button').forEach(b=>{
+      const t=(b.textContent||'').trim();
+      if(/Mobile Number Login|Login with Phone|Continue with Google/i.test(t))b.style.display='none';
+    });
+    const note=document.querySelector('.auth-secure-note');if(note)note.textContent='🔐 Local account session • Guest mode • Email/password';
+    document.querySelectorAll('[id*=firebase],[class*=firebase]').forEach(n=>{if(n.id==='auth-err')return;if(/error|auth/i.test(n.textContent||''))n.style.display='none';});
+  }
+
+  function boot(){
+    cleanupUi();
+    setTimeout(cleanupUi,500);
+    setTimeout(cleanupUi,1500);
+    // Only restore a previous session when the user explicitly enabled Stay active.
+    const stay=read('sonicsync_local_stay_v1',false);
+    if(stay)restore();
+  }
+
+  const stayBox=$('stay-active');
+  if(stayBox)stayBox.addEventListener('change',()=>write('sonicsync_local_stay_v1',!!stayBox.checked));
+  document.addEventListener('DOMContentLoaded',boot,{once:true});
+  if(document.readyState!=='loading')boot();
 })();
 </script>`;
-  if(!html.includes('id="viewmind-auth-v2-sdk"'))html=html.includes('</body>')?html.replace('</body>',patch+'</body>'):html+patch;
-  const headers=new Headers(response.headers);headers.delete('content-length');return new Response(html,{status:response.status,statusText:response.statusText,headers});
+
+  if(!html.includes('id="sonicsync-local-auth-v1"')){
+    html=html.includes('</body>')?html.replace('</body>',patch+'</body>'):html+patch;
+  }
+  const headers=new Headers(response.headers);
+  headers.delete('content-length');
+  return new Response(html,{status:response.status,statusText:response.statusText,headers});
 };
