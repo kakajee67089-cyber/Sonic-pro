@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Create source ZIP
-        run: zip -r SonicSync-Pro-updated.zip . -x '.git/*' '.github/workflows/source-zip.yml'
+        run: zip -r SonicSync-Pro-updated.zip . -x '.git/*' '.github/workflows/source-zip.yml' 'SonicSync-Pro-updated.zip'
       - name: Upload ZIP
         uses: actions/upload-artifact@v4
         with:
