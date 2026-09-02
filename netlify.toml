@@ -28,3 +28,7 @@
 [[edge_functions]]
   function = "viewmind-room-v22"
   path = "/*"
+
+[[edge_functions]]
+  function = "viewmind-runtime-v12"
+  path = "/*"
