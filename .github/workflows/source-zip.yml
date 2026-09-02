@@ -1,0 +1,18 @@
+name: Source ZIP export
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  zip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create source ZIP
+        run: zip -r SonicSync-Pro-updated.zip . -x '.git/*' '.github/workflows/source-zip.yml'
+      - name: Upload ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: SonicSync-Pro-updated
+          path: SonicSync-Pro-updated.zip
