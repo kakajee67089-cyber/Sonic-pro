@@ -1,14 +1,15 @@
 {
-  "name": "sonicsync-pro-v9-server",
-  "version": "9.1.0",
+  "name": "sonicsync-pro-v12-server",
+  "version": "12.0.0",
   "private": true,
-  "description": "ViewMind Socket.IO server",
+  "description": "SonicSync Pro Firebase-authenticated Socket.IO realtime server",
   "scripts": {
     "start": "node runtime-hardening.js"
   },
   "dependencies": {
     "express": "^4.18.2",
     "firebase-admin": "^13.5.0",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "jose": "^6.0.10"
   }
 }
