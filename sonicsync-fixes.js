@@ -156,159 +156,30 @@
   function markPublicRoom(code,meta){
     if(!code||typeof window.dbUpdate!=='function')return;
     const u=window.U||{};
-    const data={
-      code:String(code).toUpperCase(),
-      name:String(meta?.name||((meta?.game||window.SS_RADAR?.kind||'Game')+' Room')).slice(0,80),
-      host:String(u.name||'Player').slice(0,60),hostUid:String(u.uid||''),
-      type:String(meta?.type||meta?.game||window.SS_RADAR?.kind||'game'),
-      isPublic:true,updated:Date.now(),created:Number(meta?.created||Date.now())
-    };
+    const data={code:String(code).toUpperCase(),name:String(meta?.name||((meta?.game||window.SS_RADAR?.kind||'Game')+' Room')).slice(0,80),host:String(u.name||'Player').slice(0,60),hostUid:String(u.uid||''),type:String(meta?.type||meta?.game||window.SS_RADAR?.kind||'game'),isPublic:true,updated:Date.now(),created:Number(meta?.created||Date.now())};
     window.dbUpdate('rooms/'+data.code,data);
   }
-
   function enhanceRadar(){
     const card=q('#ss-radar-overlay .ss-radar-card');if(!card||el('ss-radar-room-name'))return;
-    const wrap=document.createElement('div');wrap.id='ss-radar-room-name-wrap';wrap.style.cssText='margin:8px 0 10px';
-    wrap.innerHTML='<input id="ss-radar-room-name" class="inp" maxlength="60" placeholder="Room name (optional)" aria-label="Room name" style="width:100%;font-size:16px!important">';
-    const codeBox=card.querySelector('.ss-radar-codebox');
-    if(codeBox)codeBox.parentNode.insertBefore(wrap,codeBox);
-    const input=el('ss-radar-room-name');
-    input?.addEventListener('change',()=>{
-      const code=String(window.SS_RADAR?.code||'').toUpperCase();
-      if(!/^[A-Z0-9]{6}$/.test(code))return;
-      const name=input.value.trim()||((window.SS_RADAR?.kind||'Game')+' Room');
-      markPublicRoom(code,{name,type:window.SS_RADAR?.kind,game:window.SS_RADAR?.kind});
-      safe(()=>window.SS_SOCKET?.emit('room:meta',{roomId:code,name,isPublic:true}));
-    });
+    const wrap=document.createElement('div');wrap.id='ss-radar-room-name-wrap';wrap.style.cssText='margin:8px 0 10px';wrap.innerHTML='<input id="ss-radar-room-name" class="inp" maxlength="60" placeholder="Room name (optional)" aria-label="Room name" style="width:100%;font-size:16px!important">';
+    const codeBox=card.querySelector('.ss-radar-codebox');if(codeBox)codeBox.parentNode.insertBefore(wrap,codeBox);
+    const input=el('ss-radar-room-name');input?.addEventListener('change',()=>{const code=String(window.SS_RADAR?.code||'').toUpperCase();if(!/^[A-Z0-9]{6}$/.test(code))return;const name=input.value.trim()||((window.SS_RADAR?.kind||'Game')+' Room');markPublicRoom(code,{name,type:window.SS_RADAR?.kind,game:window.SS_RADAR?.kind});safe(()=>window.SS_SOCKET?.emit('room:meta',{roomId:code,name,isPublic:true}));});
   }
-
   function wrapRadarOpen(){
     const old=window.ssRadarOpen;if(typeof old!=='function'||old.__ssV13)return;
-    window.ssRadarOpen=function(opts){
-      const r=old.apply(this,arguments);enhanceRadar();
-      const input=el('ss-radar-room-name');
-      if(input){input.value=String(opts?.roomName||opts?.title||((opts?.kind||'Game')+' Room')).replace(/\s*•.*$/,'').trim().slice(0,60);input.style.display=opts?.host?'block':'none';}
-      setTimeout(()=>{const code=String(window.SS_RADAR?.code||'').toUpperCase();if(opts?.host&&/^[A-Z0-9]{6}$/.test(code))markPublicRoom(code,{name:input?.value,type:opts?.kind,game:opts?.kind});},180);
-      return r;
-    };window.ssRadarOpen.__ssV13=true;
+    window.ssRadarOpen=function(opts){const r=old.apply(this,arguments);enhanceRadar();const input=el('ss-radar-room-name');if(input){input.value=String(opts?.roomName||opts?.title||((opts?.kind||'Game')+' Room')).replace(/\s*•.*$/,'').trim().slice(0,60);input.style.display=opts?.host?'block':'none';}setTimeout(()=>{const code=String(window.SS_RADAR?.code||'').toUpperCase();if(opts?.host&&/^[A-Z0-9]{6}$/.test(code))markPublicRoom(code,{name:input?.value,type:opts?.kind,game:opts?.kind});},180);return r};window.ssRadarOpen.__ssV13=true;
   }
-
-  function patchGameHub(){
-    const game=el('pg-game');if(!game||game.__ssV13Hub)return;game.__ssV13Hub=true;
-    game.querySelectorAll('button').forEach(btn=>{
-      const t=(btn.textContent||'').toLowerCase();
-      if(!t.includes('math battle')&&!t.includes('color quiz')&&!t.includes('card flip')&&!t.includes('memory rush')&&!t.includes('mind snap duel'))return;
-      btn.style.minWidth='0';btn.style.minHeight='52px';
-    });
-  }
-
-  function patchRadarUsers(){
-    const box=el('ss-radar-users');if(!box||box.__ssV13)return;box.__ssV13=true;
-    const observer=new MutationObserver(()=>safe(()=>{
-      box.querySelectorAll('.ss-radar-user').forEach(node=>{
-        const name=node.textContent?.trim()||'Player';
-        node.style.minHeight='44px';node.style.cursor='pointer';
-        if(!node.querySelector('[data-v13-kick]') && window.SS_RADAR?.host){
-          const user=Object.values(window.SS_RADAR.users||{}).find(u=>String(u.name||'')===name);
-          if(user&&user.uid!==window.U?.uid){
-            const b=document.createElement('button');b.dataset.v13Kick='1';b.textContent='✕';b.style.cssText='margin-left:auto;border:0;border-radius:9px;background:#ef4444;color:#fff;padding:6px 9px;font-weight:900;min-height:36px';
-            b.onclick=e=>{e.stopPropagation();safe(()=>window.SS_SOCKET?.emit('room:kick',{roomId:window.SS_RADAR.code,targetUid:user.uid}));safe(()=>window.dbRemove?.('rooms/'+window.SS_RADAR.code+'/users/'+user.uid));};node.appendChild(b);
-          }
-        }
-      });
-    }));
-    observer.observe(box,{childList:true,subtree:true});
-  }
-
-  function patchFollowRequests(){
-    const old=window.toggleProfileFollow;if(typeof old!=='function'||old.__ssV13)return;
-    window.toggleProfileFollow=async function(uid){
-      if(!window.U||uid===window.U.uid)return;
-      const target=await (typeof window.dbGet==='function'?window.dbGet('publicProfiles/'+uid):Promise.resolve(null)).catch(()=>null);
-      if(!target)return;
-      const already=!!(target.followers&&target.followers[window.U.uid]);
-      if(already){return old.apply(this,arguments);}
-      const req={uid:window.U.uid,name:window.U.name,photo:window.U.photo||null,time:Date.now(),status:'pending'};
-      safe(()=>window.dbUpdate?.('users/'+uid+'/followRequests/'+window.U.uid,req));
-      safe(()=>window.dbPush?.('users/'+uid+'/notifications',{type:'followRequest',from:{uid:window.U.uid,name:window.U.name,photo:window.U.photo||null},time:req.time,read:false,status:'pending'}));
-      toast('👥 Follow request sent');
-    };window.toggleProfileFollow.__ssV13=true;
-
-    window.respondFollowRequest=function(fromUid,accept){
-      if(!window.U?.uid)return;
-      const me=window.U.uid;
-      safe(()=>window.dbUpdate?.('users/'+me+'/followRequests/'+fromUid,{status:accept?'accepted':'rejected',respondedAt:Date.now()}));
-      if(accept){
-        safe(()=>window.dbUpdate?.('users/'+me+'/followers/'+fromUid,{uid:fromUid,time:Date.now()}));
-        safe(()=>window.dbUpdate?.('users/'+fromUid+'/following/'+me,{uid:me,name:window.U.name,photo:window.U.photo||null,time:Date.now()}));
-        safe(()=>window.dbUpdate?.('publicProfiles/'+me+'/followers/'+fromUid,{uid:fromUid,time:Date.now()}));
-        safe(()=>window.dbUpdate?.('users/'+fromUid+'/notifications',{[`followAccepted_${me}`]:{type:'followAccepted',from:{uid:me,name:window.U.name,photo:window.U.photo||null},time:Date.now(),read:false}}));
-        toast('✅ Follow request accepted');
-      }else toast('❌ Follow request rejected');
-      safe(()=>window.renderMySocial?.());
-    };
-  }
-
-  function patchSocialRenderer(){
-    const old=window.renderMySocial;if(typeof old!=='function'||old.__ssV13)return;
-    window.renderMySocial=async function(){
-      const r=old.apply(this,arguments);
-      setTimeout(()=>safe(async()=>{
-        if(!window.U?.uid||typeof window.dbGet!=='function')return;
-        const me=await window.dbGet('users/'+window.U.uid);const list=el('my-social-list');if(!me||!list)return;
-        const reqs=Object.values(me.followRequests||{}).filter(x=>x&&x.status==='pending');
-        if(!reqs.length)return;
-        const frag=document.createDocumentFragment();
-        reqs.forEach(x=>{const d=document.createElement('div');d.className='social-row';d.innerHTML=`<div class="social-mini-avatar">${String(x.name||'?')[0].toUpperCase()}</div><div class="sr-main"><div class="sr-name">${window.esc?window.esc(x.name||'User'):x.name||'User'}</div><div class="sr-time">👥 Follow request</div></div><button class="btn bi sm" onclick="respondFollowRequest('${String(x.uid).replace(/'/g,'')}',true)">✓</button><button class="btn bh sm" onclick="respondFollowRequest('${String(x.uid).replace(/'/g,'')}',false)">✕</button>`;frag.appendChild(d);});
-        list.prepend(frag);
-      }),250);
-      return r;
-    };window.renderMySocial.__ssV13=true;
-  }
-
-  function patchNotificationPoll(){
-    if(window.__ssNotifV13)return;window.__ssNotifV13=true;
-    const style=document.createElement('style');style.textContent='#game-req-popup,#request-popup,.game-request-popup{animation:ssNotif3s .2s ease}@keyframes ssNotif3s{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}';document.head.appendChild(style);
-  }
-
-  function patchSocketReconnect(){
-    const sock=window.SS_SOCKET;if(!sock||sock.__ssV13Reconnect)return;sock.__ssV13Reconnect=true;
-    const register=()=>safe(()=>sock.emit('presence:register',{uid:window.U?.uid,name:window.U?.name,photo:window.U?.photo||null,email:window.U?.email||null}));
-    sock.on('connect',register);
-    sock.on('reconnect',register);
-    sock.on('disconnect',()=>safe(()=>window.ssSetSocketStatus?.(navigator.onLine,'Online')));
-    addEventListener('online',()=>{try{if(!sock.connected)sock.connect()}catch(e){}safe(()=>window.ssSetSocketStatus?.(true,'🟢 Online'))});
-  }
-
-  function patchQuizAndCardSocketBridge(){
-    const sock=window.SS_SOCKET;if(!sock||sock.__ssV13GameBridge)return;sock.__ssV13GameBridge=true;
-    const emitRoom=(event,code)=>safe(()=>{if(code&&window.U)sock.emit(event,{roomId:code,type:window.SS_RADAR?.kind||'game',user:{uid:window.U.uid,name:window.U.name,photo:window.U.photo||null},name:(window.SS_RADAR?.kind||'Game')+' Room',isPublic:true});});
-    const oldCFCreate=window.createFCRoom;
-    if(typeof oldCFCreate==='function'&&!oldCFCreate.__ssV13){window.createFCRoom=function(){const r=oldCFCreate.apply(this,arguments);const code=window.fcRoomId;if(code)emitRoom('room:create',code);return r};window.createFCRoom.__ssV13=true;}
-    const oldCFJoin=window.joinFCRoom;
-    if(typeof oldCFJoin==='function'&&!oldCFJoin.__ssV13){window.joinFCRoom=function(){const r=oldCFJoin.apply(this,arguments);const code=String(window.fcRoomId||'').toUpperCase();if(code)emitRoom('room:join',code);return r};window.joinFCRoom.__ssV13=true;}
-    const oldCFStart=window.hostStartFC;
-    if(typeof oldCFStart==='function'&&!oldCFStart.__ssV13){window.hostStartFC=function(){const code=window.fcRoomId;if(code)safe(()=>sock.emit('game:start',{roomId:code,game:'flipcard'}));return oldCFStart.apply(this,arguments)};window.hostStartFC.__ssV13=true;}
-    const oldQCreate=window.createHostedQuizRoom;
-    if(typeof oldQCreate==='function'&&!oldQCreate.__ssV13){window.createHostedQuizRoom=function(type,op){const r=oldQCreate.apply(this,arguments);const code=window.quizRoomId;if(code)emitRoom('room:create',code);return r};window.createHostedQuizRoom.__ssV13=true;}
-    const oldQJoin=window.joinQuizRoom;
-    if(typeof oldQJoin==='function'&&!oldQJoin.__ssV13){window.joinQuizRoom=function(){const r=oldQJoin.apply(this,arguments);const code=String(window.quizRoomId||'').toUpperCase();if(code)emitRoom('room:join',code);return r};window.joinQuizRoom.__ssV13=true;}
-    const oldQStart=window.hostStartQuiz;
-    if(typeof oldQStart==='function'&&!oldQStart.__ssV13){window.hostStartQuiz=function(){const code=window.quizRoomId;if(code)safe(()=>sock.emit('game:start',{roomId:code,game:'quiz'}));return oldQStart.apply(this,arguments)};window.hostStartQuiz.__ssV13=true;}
-    sock.on('room:host-changed',p=>{if(!p?.roomId)return;if(p.roomId===window.quizRoomId)window.quizIsHost=p.hostUid===window.U?.uid;if(p.roomId===window.fcRoomId)window.fcIsHost=p.hostUid===window.U?.uid;});
-    sock.on('game:started',p=>{if(!p?.roomId||p.hostUid===window.U?.uid)return;if(p.game==='quiz'&&window.quizRoomId===p.roomId)toast('🚀 Host started the quiz');if(p.game==='flipcard'&&window.fcRoomId===p.roomId)toast('🚀 Host started Card Flip');});
-  }
-
-  function patchGenericFindOpponent(){
-    const s=window.SS_SOCKET;if(!s||s.__ssV13GenericMM)return;s.__ssV13GenericMM=true;
-    s.on('matchmaking:matched',p=>safe(()=>{if(!p?.roomId)return;const game=String(p.game||'').toLowerCase();if(['ludo','bubble','snake','carrom'].includes(game)){window.mmSearching=false;clearInterval(window.mmTimer);window.mmMatchedRoomId=p.roomId;window.mmMatchedGame=game;const title=game==='ludo'?'Ludo':game==='bubble'?'Bubble Battle':game==='snake'?'Snake & Ladder':'Carrom Pool';if(window.ssRadarOpen)window.ssRadarOpen({kind:game,icon:game==='ludo'?'🎲':game==='bubble'?'🫧':game==='snake'?'🐍':'🎯',title:title+' • MATCH FOUND',sub:'Opponent mil gaya. Room synced — game-specific multiplayer state ready.',code:p.roomId,host:p.hostUid===window.U?.uid,users:{},canClose:true});toast('🎉 '+title+' opponent found');}}));
-  }
-
-  function bootV13(){
-    enhanceRadar();wrapRadarOpen();patchRadarUsers();patchGameHub();patchFollowRequests();patchSocialRenderer();patchNotificationPoll();patchSocketReconnect();patchQuizAndCardSocketBridge();patchGenericFindOpponent();window.__ssPatchRadarCleanup?.();
-    window.ssStartMpTimer=()=>null;
-    if(el('ss-radar-close'))el('ss-radar-close').setAttribute('onclick','ssRadarCancel()');
-  }
+  function patchGameHub(){const game=el('pg-game');if(!game||game.__ssV13Hub)return;game.__ssV13Hub=true;game.querySelectorAll('button').forEach(btn=>{const t=(btn.textContent||'').toLowerCase();if(!t.includes('math battle')&&!t.includes('color quiz')&&!t.includes('card flip')&&!t.includes('memory rush')&&!t.includes('mind snap duel'))return;btn.style.minWidth='0';btn.style.minHeight='52px';});}
+  function patchRadarUsers(){const box=el('ss-radar-users');if(!box||box.__ssV13)return;box.__ssV13=true;const observer=new MutationObserver(()=>safe(()=>{box.querySelectorAll('.ss-radar-user').forEach(node=>{const name=node.textContent?.trim()||'Player';node.style.minHeight='44px';node.style.cursor='pointer';if(!node.querySelector('[data-v13-kick]')&&window.SS_RADAR?.host){const user=Object.values(window.SS_RADAR.users||{}).find(u=>String(u.name||'')===name);if(user&&user.uid!==window.U?.uid){const b=document.createElement('button');b.dataset.v13Kick='1';b.textContent='✕';b.style.cssText='margin-left:auto;border:0;border-radius:9px;background:#ef4444;color:#fff;padding:6px 9px;font-weight:900;min-height:36px';b.onclick=e=>{e.stopPropagation();safe(()=>window.SS_SOCKET?.emit('room:kick',{roomId:window.SS_RADAR.code,targetUid:user.uid}));safe(()=>window.dbRemove?.('rooms/'+window.SS_RADAR.code+'/users/'+user.uid));};node.appendChild(b);}}});}));observer.observe(box,{childList:true,subtree:true});}
+  function patchFollowRequests(){const old=window.toggleProfileFollow;if(typeof old!=='function'||old.__ssV13)return;window.toggleProfileFollow=async function(uid){if(!window.U||uid===window.U.uid)return;const target=await(typeof window.dbGet==='function'?window.dbGet('publicProfiles/'+uid):Promise.resolve(null)).catch(()=>null);if(!target)return;const already=!!(target.followers&&target.followers[window.U.uid]);if(already)return old.apply(this,arguments);const req={uid:window.U.uid,name:window.U.name,photo:window.U.photo||null,time:Date.now(),status:'pending'};safe(()=>window.dbUpdate?.('users/'+uid+'/followRequests/'+window.U.uid,req));safe(()=>window.dbPush?.('users/'+uid+'/notifications',{type:'followRequest',from:{uid:window.U.uid,name:window.U.name,photo:window.U.photo||null},time:req.time,read:false,status:'pending'}));toast('👥 Follow request sent');};window.toggleProfileFollow.__ssV13=true;window.respondFollowRequest=function(fromUid,accept){if(!window.U?.uid)return;const me=window.U.uid;safe(()=>window.dbUpdate?.('users/'+me+'/followRequests/'+fromUid,{status:accept?'accepted':'rejected',respondedAt:Date.now()}));if(accept){safe(()=>window.dbUpdate?.('users/'+me+'/followers/'+fromUid,{uid:fromUid,time:Date.now()}));safe(()=>window.dbUpdate?.('users/'+fromUid+'/following/'+me,{uid:me,name:window.U.name,photo:window.U.photo||null,time:Date.now()}));safe(()=>window.dbUpdate?.('publicProfiles/'+me+'/followers/'+fromUid,{uid:fromUid,time:Date.now()}));safe(()=>window.dbUpdate?.('users/'+fromUid+'/notifications',{['followAccepted_'+me]:{type:'followAccepted',from:{uid:me,name:window.U.name,photo:window.U.photo||null},time:Date.now(),read:false}}));toast('✅ Follow request accepted');}else toast('❌ Follow request rejected');safe(()=>window.renderMySocial?.());};}
+  function patchSocialRenderer(){const old=window.renderMySocial;if(typeof old!=='function'||old.__ssV13)return;window.renderMySocial=async function(){const r=old.apply(this,arguments);setTimeout(()=>safe(async()=>{if(!window.U?.uid||typeof window.dbGet!=='function')return;const me=await window.dbGet('users/'+window.U.uid);const list=el('my-social-list');if(!me||!list)return;const reqs=Object.values(me.followRequests||{}).filter(x=>x&&x.status==='pending');if(!reqs.length)return;const frag=document.createDocumentFragment();reqs.forEach(x=>{const d=document.createElement('div');d.className='social-row';d.innerHTML=`<div class="social-mini-avatar">${String(x.name||'?')[0].toUpperCase()}</div><div class="sr-main"><div class="sr-name">${window.esc?window.esc(x.name||'User'):x.name||'User'}</div><div class="sr-time">👥 Follow request</div></div><button class="btn bi sm" onclick="respondFollowRequest('${String(x.uid).replace(/'/g,'')}',true)">✓</button><button class="btn bh sm" onclick="respondFollowRequest('${String(x.uid).replace(/'/g,'')}',false)">✕</button>`;frag.appendChild(d);});list.prepend(frag);}),250);return r;};window.renderMySocial.__ssV13=true;}
+  function patchNotificationPoll(){if(window.__ssNotifV13)return;window.__ssNotifV13=true;const style=document.createElement('style');style.textContent='#game-req-popup,#request-popup,.game-request-popup{animation:ssNotif3s .2s ease}@keyframes ssNotif3s{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}';document.head.appendChild(style);}
+  function patchSocketReconnect(){const sock=window.SS_SOCKET;if(!sock||sock.__ssV13Reconnect)return;sock.__ssV13Reconnect=true;const register=()=>safe(()=>sock.emit('presence:register',{uid:window.U?.uid,name:window.U?.name,photo:window.U?.photo||null,email:window.U?.email||null}));sock.on('connect',register);sock.on('reconnect',register);sock.on('disconnect',()=>safe(()=>window.ssSetSocketStatus?.(navigator.onLine,'Online')));addEventListener('online',()=>{try{if(!sock.connected)sock.connect()}catch(e){}safe(()=>window.ssSetSocketStatus?.(true,'🟢 Online'))});}
+  function patchQuizAndCardSocketBridge(){const sock=window.SS_SOCKET;if(!sock||sock.__ssV13GameBridge)return;sock.__ssV13GameBridge=true;const emitRoom=(event,code)=>safe(()=>{if(code&&window.U)sock.emit(event,{roomId:code,type:window.SS_RADAR?.kind||'game',user:{uid:window.U.uid,name:window.U.name,photo:window.U.photo||null},name:(window.SS_RADAR?.kind||'Game')+' Room',isPublic:true});});const oldCFCreate=window.createFCRoom;if(typeof oldCFCreate==='function'&&!oldCFCreate.__ssV13){window.createFCRoom=function(){const r=oldCFCreate.apply(this,arguments);const code=window.fcRoomId;if(code)emitRoom('room:create',code);return r};window.createFCRoom.__ssV13=true;}const oldCFJoin=window.joinFCRoom;if(typeof oldCFJoin==='function'&&!oldCFJoin.__ssV13){window.joinFCRoom=function(){const r=oldCFJoin.apply(this,arguments);const code=String(window.fcRoomId||'').toUpperCase();if(code)emitRoom('room:join',code);return r};window.joinFCRoom.__ssV13=true;}const oldCFStart=window.hostStartFC;if(typeof oldCFStart==='function'&&!oldCFStart.__ssV13){window.hostStartFC=function(){const code=window.fcRoomId;if(code)safe(()=>sock.emit('game:start',{roomId:code,game:'flipcard'}));return oldCFStart.apply(this,arguments)};window.hostStartFC.__ssV13=true;}const oldQCreate=window.createHostedQuizRoom;if(typeof oldQCreate==='function'&&!oldQCreate.__ssV13){window.createHostedQuizRoom=function(type,op){const r=oldQCreate.apply(this,arguments);const code=window.quizRoomId;if(code)emitRoom('room:create',code);return r};window.createHostedQuizRoom.__ssV13=true;}const oldQJoin=window.joinQuizRoom;if(typeof oldQJoin==='function'&&!oldQJoin.__ssV13){window.joinQuizRoom=function(){const r=oldQJoin.apply(this,arguments);const code=String(window.quizRoomId||'').toUpperCase();if(code)emitRoom('room:join',code);return r};window.joinQuizRoom.__ssV13=true;}const oldQStart=window.hostStartQuiz;if(typeof oldQStart==='function'&&!oldQStart.__ssV13){window.hostStartQuiz=function(){const code=window.quizRoomId;if(code)safe(()=>sock.emit('game:start',{roomId:code,game:'quiz'}));return oldQStart.apply(this,arguments)};window.hostStartQuiz.__ssV13=true;}sock.on('room:host-changed',p=>{if(!p?.roomId)return;if(p.roomId===window.quizRoomId)window.quizIsHost=p.hostUid===window.U?.uid;if(p.roomId===window.fcRoomId)window.fcIsHost=p.hostUid===window.U?.uid;});sock.on('game:started',p=>{if(!p?.roomId||p.hostUid===window.U?.uid)return;if(p.game==='quiz'&&window.quizRoomId===p.roomId)toast('🚀 Host started the quiz');if(p.game==='flipcard'&&window.fcRoomId===p.roomId)toast('🚀 Host started Card Flip');});}
+  function patchGenericFindOpponent(){const s=window.SS_SOCKET;if(!s||s.__ssV13GenericMM)return;s.__ssV13GenericMM=true;s.on('matchmaking:matched',p=>safe(()=>{if(!p?.roomId)return;const game=String(p.game||'').toLowerCase();if(['ludo','bubble','snake','carrom'].includes(game)){window.mmSearching=false;clearInterval(window.mmTimer);window.mmMatchedRoomId=p.roomId;window.mmMatchedGame=game;const title=game==='ludo'?'Ludo':game==='bubble'?'Bubble Battle':game==='snake'?'Snake & Ladder':'Carrom Pool';if(window.ssRadarOpen)window.ssRadarOpen({kind:game,icon:game==='ludo'?'🎲':game==='bubble'?'🫧':game==='snake'?'🐍':'🎯',title:title+' • MATCH FOUND',sub:'Opponent mil gaya. Room synced — game-specific multiplayer state ready.',code:p.roomId,host:p.hostUid===window.U?.uid,users:{},canClose:true});toast('🎉 '+title+' opponent found');}}));}
+  function patchStartRadarFlows(){if(window.__ssRadarStartFlowV13)return;window.__ssRadarStartFlowV13=true;const wrap=name=>{const old=window[name];if(typeof old!=='function'||old.__ssV13Start)return;window[name]=function(){window.__SS_RADAR_STARTING=true;try{return old.apply(this,arguments)}finally{setTimeout(()=>{window.__SS_RADAR_STARTING=false},250)}};window[name].__ssV13Start=true;};['hostStartFC','hostStartMemoryRush','startMindMatch','hostStartQuiz'].forEach(wrap);}
+  function patchRadarCloseFinal(){const old=window.ssRadarClose;if(typeof old!=='function'||old.__ssV13FinalClose)return;window.ssRadarClose=function(){const starting=!!window.__SS_RADAR_STARTING,r=window.SS_RADAR||{};try{clearInterval(r.timer);clearInterval(r.codePoll);}catch(e){}const o=el('ss-radar-overlay');if(o)o.classList.remove('show');const rq=el('ss-radar-request');if(rq){rq.style.display='none';rq.disabled=false;rq.textContent='🙋 REQUEST START';}if(starting)return;if(window.__SS_RADAR_ABORT){try{const code=String(r.code||'').toUpperCase();if(code&&window.dbRemove&&r.host)window.dbRemove('rooms/'+code);}catch(e){}}const fn=r.closeFn;r.closeFn=null;if(typeof fn==='function')safe(()=>fn());else safe(()=>window.goPage?.(r.kind==='music'?'room':'game'));};window.ssRadarClose.__ssV13FinalClose=true;}
+  function bootV13(){enhanceRadar();wrapRadarOpen();patchRadarUsers();patchGameHub();patchFollowRequests();patchSocialRenderer();patchNotificationPoll();patchSocketReconnect();patchQuizAndCardSocketBridge();patchGenericFindOpponent();patchStartRadarFlows();patchRadarCloseFinal();window.__ssPatchRadarCleanup?.();window.ssStartMpTimer=()=>null;if(el('ss-radar-close'))el('ss-radar-close').setAttribute('onclick','ssRadarCancel()');}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(bootV13,0),{once:true});else setTimeout(bootV13,0);
   setTimeout(bootV13,1200);
 })();
