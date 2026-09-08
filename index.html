@@ -3100,9 +3100,18 @@ function initFB() {
     return;
   }
   try {
-    const fbConfig = window.SONICSYNC_FIREBASE_CONFIG || null;
-    if(!fbConfig || !fbConfig.apiKey || !fbConfig.projectId){
-      throw new Error('Firebase web configuration missing in config.js');
+    const fbConfig = window.SONICSYNC_FIREBASE_CONFIG || {
+      apiKey: "AIzaSyC4yFUw23s1Wb9ignSPzRdGeSaThNLTiXY",
+      authDomain: "sonic-singh.firebaseapp.com",
+      databaseURL: "https://sonic-singh-default-rtdb.firebaseio.com",
+      projectId: "sonic-singh",
+      storageBucket: "sonic-singh.firebasestorage.app",
+      messagingSenderId: "668422254722",
+      appId: "1:668422254722:web:31394b6c816e6122eb449b",
+      measurementId: "G-8NMB6HYKWY"
+    };
+    if(!fbConfig.apiKey || !fbConfig.projectId){
+      throw new Error('Firebase web configuration missing.');
     }
     const existingApp = firebase.apps && firebase.apps.length > 0 ? firebase.apps[0] : null;
     const app = existingApp || firebase.initializeApp(fbConfig);
@@ -3250,33 +3259,69 @@ function seedLocalUserShape(data={}){
   return {email:'',name:'User',isAdmin:false,photo:null,uid:genUID(),authUid:'',coins:0,inventory:[],vipExpiry:{},rooms:0,songs:0,games:0,matches:0,wins:0,losses:0,loginStreak:0,likeCount:0,followersCount:0,followingCount:0,notifications:{},requests:{},friends:{},followers:{},following:{},likesBy:{},joinedAt:Date.now(),lastActive:Date.now(),...data};
 }
 function dbGetOnce(path){return new Promise((resolve,reject)=>{const r=dbRef(path);if(!r){reject(new Error('Database unavailable'));return}r.once('value',s=>resolve(s.val()),reject)})}
-async function ensureProfileForAuthUser(user){
+async async function ensureProfileForAuthUser(user){
   if(!user) return null;
   const email=String(user.email||'').toLowerCase();
   const admin=isAdminEmail(email);
+
+  // 1) Always prefer the existing authUid -> public UID mapping.
+  // This keeps the same Firebase account attached to the same game/profile data.
   let profile=null;
-  // Preferred: deterministic mapping created by this auth integration.
   try{ profile=await dbGetOnce('authProfiles/'+user.uid); }catch(e){}
   if(profile?.profileUid){
     const existing=await dbGetOnce('users/'+profile.profileUid).catch(()=>null);
-    if(existing){return {...existing,authUid:user.uid,email:existing.email||email,isAdmin:admin};}
+    if(existing){
+      return {...existing,authUid:user.uid,email:existing.email||email,isAdmin:admin};
+    }
   }
-  // Migration fallback for an older profile matching this email.
+
+  // 2) Recover the old public UID from this browser before ever generating a new one.
+  // Older builds stored the complete profile under ss6_users.
   try{
-    const all=await dbGetOnce('users');
-    if(all){const found=Object.values(all).find(x=>x&&String(x.email||'').toLowerCase()===email);if(found&&found.uid){
-      const migrated={...found,authUid:user.uid,email:user.email||found.email,isAdmin:admin};
-      await dbUpdate('users/'+found.uid,migrated); await dbUpdate('authProfiles/'+user.uid,{profileUid:String(found.uid),email:email});
-      return migrated;
-    }}
-  }catch(e){}
-  // New stable 10-digit public UID. Collision is checked before use.
+    const localUsers=(typeof users==='object'&&users)?users:{};
+    let local=null;
+    if(localUsers[email]) local=localUsers[email];
+    if(!local){
+      local=Object.values(localUsers).find(x=>x&&String(x.email||'').toLowerCase()===email) || null;
+    }
+    if(!local){
+      local=Object.values(localUsers).find(x=>x&&String(x.authUid||'')===String(user.uid)) || null;
+    }
+    if(local?.uid && !String(local.uid).startsWith('g_')){
+      const oldUid=String(local.uid);
+      const remote=await dbGetOnce('users/'+oldUid).catch(()=>null);
+      if(remote){
+        const recovered={...remote,authUid:user.uid,email:remote.email||user.email||email,isAdmin:admin};
+        await dbUpdate('users/'+oldUid,{authUid:user.uid,email:recovered.email,isAdmin:admin,lastActive:Date.now()});
+        await dbUpdate('authProfiles/'+user.uid,{profileUid:oldUid,email:email});
+        return recovered;
+      }
+      // Keep the old public UID even if the remote read is temporarily unavailable.
+      // Do NOT create a second profile and do NOT overwrite old game data.
+      const recoveredLocal={...seedLocalUserShape(local),authUid:user.uid,email:user.email||local.email||email,isAdmin:admin};
+      try{await dbUpdate('authProfiles/'+user.uid,{profileUid:oldUid,email:email});}catch(e){}
+      return recoveredLocal;
+    }
+  }catch(e){ console.warn('Local profile recovery failed',e); }
+
+  // 3) Only then create a new profile for a genuinely new account.
   let publicUid=genUID();
   for(let i=0;i<6;i++){
-    const hit=await dbGetOnce('uidIndex/'+publicUid).catch(()=>null); if(!hit)break; publicUid=genUID();
+    const hit=await dbGetOnce('uidIndex/'+publicUid).catch(()=>null);
+    if(!hit)break;
+    publicUid=genUID();
   }
-  const local=seedLocalUserShape({email:user.email||email,name:user.displayName||email.split('@')[0]||'User',photo:user.photoURL||null,uid:publicUid,authUid:user.uid,isAdmin:admin});
-  await dbSet('users/'+publicUid,local); await dbSet('uidIndex/'+publicUid,user.uid); await dbSet('authProfiles/'+user.uid,{profileUid:publicUid,email:email});
+  const local=seedLocalUserShape({
+    email:user.email||email,
+    name:user.displayName||email.split('@')[0]||'User',
+    photo:user.photoURL||null,
+    uid:publicUid,
+    authUid:user.uid,
+    isAdmin:admin
+  });
+  await dbSet('users/'+publicUid,local);
+  await dbSet('uidIndex/'+publicUid,user.uid);
+  await dbSet('authProfiles/'+user.uid,{profileUid:publicUid,email:email});
   return local;
 }
 async function applyFirebaseUser(user,opts={}){
@@ -10940,6 +10985,52 @@ if(typeof oldSocketConnect==='function'&&!oldSocketConnect.__ssV9){window.ssSock
   function run(){scan(document.body);convertMaterialSymbols();}
   const boot=()=>{run();const mo=new MutationObserver(muts=>{let doScan=false;for(const m of muts){if(m.type==='childList'&&m.addedNodes.length){doScan=true;break}}if(doScan)run()});mo.observe(document.body,{childList:true,subtree:true});};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+
+
+<!-- SONICSYNC FINAL UI SAFETY PATCH
+     Requested hidden games stay in the code but are removed only from the visible UI.
+     No game engine/data/functions are deleted. -->
+<style id="sonicsync-final-hidden-games">
+#pg-ludo,#pg-snake,#pg-carrom,#pg-bubble,
+#ludo-overlay,#snake-overlay,#carrom-overlay,#bubble-overlay{display:none!important;}
+</style>
+<script id="sonicsync-final-hidden-games-js">
+(function(){
+  'use strict';
+  var H={ludo:1,snake:1,carrom:1,bubble:1};
+  function hide(el){
+    if(!el||el.nodeType!==1)return;
+    var oc=(el.getAttribute('onclick')||'').toLowerCase();
+    var dt=(el.getAttribute('data-type')||'').toLowerCase();
+    var tx=(el.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();
+    var hit=Object.keys(H).some(function(k){
+      return oc.indexOf("gopage('"+k+"'")>=0 ||
+             oc.indexOf('gopage("'+k+'"')>=0 ||
+             oc.indexOf("open"+k)>=0 ||
+             dt===k;
+    });
+    if(hit)el.style.setProperty('display','none','important');
+    if(/^(ludo battle|ludo|snake & ladder|snake and ladder|carrom pool|carrom board|bubble battle|bubble shooter)$/.test(tx)){
+      var tag=(el.tagName||'').toLowerCase();
+      var cls=String(el.className||'');
+      if(/button|btn|hi|mmtype|card/.test(tag+'.'+cls))el.style.setProperty('display','none','important');
+    }
+  }
+  function hideAll(){
+    ['#pg-ludo','#pg-snake','#pg-carrom','#pg-bubble',
+     '#ludo-overlay','#snake-overlay','#carrom-overlay','#bubble-overlay'].forEach(function(sel){
+      document.querySelectorAll(sel).forEach(function(el){el.style.setProperty('display','none','important');});
+    });
+    document.querySelectorAll('[onclick],[data-type]').forEach(hide);
+  }
+  window.__SONICSYNC_HIDE_REMOVED_GAMES=hideAll;
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',hideAll,{once:true});
+  else hideAll();
+  setTimeout(hideAll,300);
+  setTimeout(hideAll,1000);
+  setTimeout(hideAll,2500);
 })();
 </script>
 </body>
