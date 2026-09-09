@@ -1149,24 +1149,6 @@ overflow:hidden}
         <button class="auth-btn-pro auth-primary-pro" type="button" onclick="firebaseRegister()"><span>✨</span> Create Account</button>
         <button class="auth-mini-link" type="button" onclick="showAuthSection('auth-main')">← Back to Login</button>
       </div>
-
-      <div id="phone-section" class="auth-section-pro hidden">
-        <div class="auth-section-title">Mobile Number Login</div>
-        <div class="auth-section-note">OTP will be sent only after you press the button.</div>
-        <div class="auth-input-pro"><span>📱</span><input type="tel" id="phone" placeholder="+91 XXXXX XXXXX" autocomplete="tel" inputmode="tel"></div>
-        <div id="recaptcha-container" class="recaptcha-pro"></div>
-        <button class="auth-btn-pro auth-primary-pro" type="button" onclick="sendFirebaseOTP()"><span>📨</span> Send OTP</button>
-        <button class="auth-mini-link" type="button" onclick="showAuthSection('auth-main')">← Email Login</button>
-      </div>
-
-      <div id="otp-section" class="auth-section-pro hidden">
-        <div class="auth-section-title">Verify Mobile</div>
-        <div class="auth-section-note">Enter the 6-digit code sent to your phone.</div>
-        <div class="auth-input-pro"><span>🔢</span><input type="text" id="otp" inputmode="numeric" maxlength="6" placeholder="6-Digit OTP" autocomplete="one-time-code"></div>
-        <button class="auth-btn-pro auth-primary-pro" type="button" onclick="verifyFirebaseOTP()"><span>✅</span> Verify & Sync</button>
-        <button class="auth-mini-link" type="button" onclick="showAuthSection('phone-section')">← Change number</button>
-      </div>
-
       <div id="forgot-section" class="auth-section-pro hidden">
         <div class="auth-section-title">Password Recovery</div>
         <div class="auth-section-note">Enter your account email. Firebase will send the recovery link.</div>
@@ -1176,8 +1158,15 @@ overflow:hidden}
       </div>
 
       <div class="auth-divider-pro"><span>GLOBAL SYNC</span></div>
-      <button class="auth-btn-pro auth-google-pro" type="button" onclick="firebaseGoogleLogin()"><img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/action/google.svg" width="18" height="18" alt=""> Continue with Google</button>
-      <button class="auth-btn-pro auth-ghost-pro" id="mode-toggle" type="button" onclick="toggleFirebasePhoneMode()">📱 Mobile Number Login</button>
+      <button class="auth-btn-pro auth-google-pro" type="button" onclick="firebaseGoogleLogin()" aria-label="Continue with Google">
+  <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path fill="#4285F4" d="M21.35 12.27c0-.79-.07-1.55-.22-2.27H12v4.3h5.24a4.48 4.48 0 0 1-1.94 2.94v2.45h3.14c1.84-1.69 2.91-4.18 2.91-7.42Z"/>
+    <path fill="#34A853" d="M12 21.75c2.63 0 4.84-.87 6.45-2.36l-3.14-2.45c-.87.58-1.98.93-3.31.93-2.54 0-4.69-1.72-5.46-4.03H3.3v2.53A9.75 9.75 0 0 0 12 21.75Z"/>
+    <path fill="#FBBC05" d="M6.54 13.84A5.86 5.86 0 0 1 6.23 12c0-.64.11-1.26.31-1.84V7.63H3.3A9.75 9.75 0 0 0 2.25 12c0 1.57.38 3.05 1.05 4.37l3.24-2.53Z"/>
+    <path fill="#EA4335" d="M12 6.13c1.43 0 2.71.49 3.72 1.45l2.79-2.79C16.84 3.16 14.63 2.25 12 2.25A9.75 9.75 0 0 0 3.3 7.63l3.24 2.53C7.31 7.85 9.46 6.13 12 6.13Z"/>
+  </svg>
+  <span>Continue with Google</span>
+</button>
       <button class="auth-btn-pro auth-ghost-pro" type="button" onclick="firebaseGuestLogin()">👤 Continue as Guest</button>
       <div class="auth-secure-note">🔐 Firebase Authentication • Realtime Database • Per-user data isolation</div>
     </div>
@@ -3246,7 +3235,7 @@ function authBusy(on,text){
 function showAuthErr(msg){const e=document.getElementById('auth-err');if(e){e.textContent=msg||'';e.style.display=msg?'block':'none';}}
 function clearAuthErr(){showAuthErr('');}
 function showAuthSection(id){
-  ['auth-main','register-section','phone-section','otp-section','forgot-section'].forEach(x=>document.getElementById(x)?.classList.add('hidden'));
+  ['auth-main','register-section','forgot-section'].forEach(x=>document.getElementById(x)?.classList.add('hidden'));
   document.getElementById(id)?.classList.remove('hidden'); clearAuthErr();
   if(id==='phone-section') setTimeout(ensureRecaptcha,100);
 }
@@ -3259,7 +3248,7 @@ function seedLocalUserShape(data={}){
   return {email:'',name:'User',isAdmin:false,photo:null,uid:genUID(),authUid:'',coins:0,inventory:[],vipExpiry:{},rooms:0,songs:0,games:0,matches:0,wins:0,losses:0,loginStreak:0,likeCount:0,followersCount:0,followingCount:0,notifications:{},requests:{},friends:{},followers:{},following:{},likesBy:{},joinedAt:Date.now(),lastActive:Date.now(),...data};
 }
 function dbGetOnce(path){return new Promise((resolve,reject)=>{const r=dbRef(path);if(!r){reject(new Error('Database unavailable'));return}r.once('value',s=>resolve(s.val()),reject)})}
-async async function ensureProfileForAuthUser(user){
+async function ensureProfileForAuthUser(user){
   if(!user) return null;
   const email=String(user.email||'').toLowerCase();
   const admin=isAdminEmail(email);
@@ -3365,26 +3354,6 @@ async function firebaseGoogleLogin(){
     else showAuthErr(authErrText(e));
   }finally{authBusy(false)}
 }
-function ensureRecaptcha(){
-  if(!FIREBASE_AUTH||firebaseRecaptchaVerifier)return;
-  try{
-    firebaseRecaptchaVerifier=new firebase.auth.RecaptchaVerifier('recaptcha-container',{size:'invisible',callback:()=>{},'expired-callback':()=>{firebaseRecaptchaVerifier=null;}});
-    firebaseRecaptchaVerifier.render().catch(()=>{});
-  }catch(e){console.warn('reCAPTCHA init',e);firebaseRecaptchaVerifier=null}
-}
-async function sendFirebaseOTP(){
-  clearAuthErr(); if(!FIREBASE_AUTH){showAuthErr('Firebase Authentication abhi connect nahi hua.');return}
-  const phone=document.getElementById('phone')?.value.trim(); if(!/^\+[1-9]\d{7,14}$/.test(phone)){showAuthErr('Phone number country code ke saath bharo, jaise +91XXXXXXXXXX.');return}
-  authBusy(true,'OTP bheja ja raha hai…');
-  try{ensureRecaptcha();if(!firebaseRecaptchaVerifier)throw new Error('reCAPTCHA ready nahi hua.');firebaseConfirmationResult=await FIREBASE_AUTH.signInWithPhoneNumber(phone,firebaseRecaptchaVerifier);showAuthSection('otp-section');}
-  catch(e){showAuthErr(authErrText(e));try{firebaseRecaptchaVerifier?.clear();}catch(_){}firebaseRecaptchaVerifier=null;}
-  finally{authBusy(false)}
-}
-async function verifyFirebaseOTP(){
-  clearAuthErr(); const code=document.getElementById('otp')?.value.trim(); if(!/^\d{6}$/.test(code)){showAuthErr('6-digit OTP bharo.');return} if(!firebaseConfirmationResult){showAuthErr('OTP session nahi mila. Dobara OTP mangao.');return}
-  authBusy(true,'OTP verify ho raha hai…');
-  try{await firebaseConfirmationResult.confirm(code);firebaseConfirmationResult=null;}catch(e){showAuthErr(authErrText(e));}finally{authBusy(false)}
-}
 async function sendPasswordReset(){
   clearAuthErr(); const email=document.getElementById('reset-email')?.value.trim();if(!email){showAuthErr('Recovery email bharo.');return}
   authBusy(true,'Reset link bheja ja raha hai…');try{await FIREBASE_AUTH.sendPasswordResetEmail(email);showAuthErr('Reset link email par bhej diya gaya hai.');document.getElementById('auth-err').style.background='rgba(16,185,129,.14)';document.getElementById('auth-err').style.color='#bbf7d0';}catch(e){showAuthErr(authErrText(e));}finally{authBusy(false)}
@@ -3393,11 +3362,12 @@ async function firebaseGuestLogin(){
   clearAuthErr();if(!FIREBASE_AUTH){showAuthErr('Firebase Authentication abhi connect nahi hua.');return}
   authBusy(true,'Starting guest session…');try{await FIREBASE_AUTH.signInAnonymously();}catch(e){showAuthErr(authErrText(e));}finally{authBusy(false)}
 }
-function toggleFirebasePhoneMode(){
-  const main=document.getElementById('auth-main');const b=document.getElementById('mode-toggle');
-  if(main?.classList.contains('hidden')){showAuthSection('auth-main');if(b)b.innerHTML='📱 Login with Phone';}
-  else{showAuthSection('phone-section');if(b)b.innerHTML='📧 Login with Email';}
-}
+
+/* Mobile/OTP authentication is intentionally disabled in this build. */
+function toggleFirebasePhoneMode(){ return false; }
+function sendFirebaseOTP(){ return Promise.reject(new Error('Mobile authentication is disabled')); }
+function verifyFirebaseOTP(){ return Promise.reject(new Error('Mobile authentication is disabled')); }
+
 function requireAdmin(){
   if(U?.isAdmin===true && isAdminEmail(U.email))return true;
   toast('⛔ Admin access denied');lockAdminUI();return false;
